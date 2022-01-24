@@ -1,0 +1,135 @@
+to lockdown-parameters
+
+    set Social-Interaction? TRUE
+    set prob-interaction 50.0
+    set avg-interaction 20
+    set social-distance? TRUE
+    set prob-distancing 100
+    set Testing? TRUE
+    set Test-effectiveness 90
+    set Test-quarantine 100
+    set Masks? TRUE
+    set Wear-Masks 100
+    set Mask-effectiveness 100
+    set Self-Quarantine? TRUE
+    set Self-quarantined 100
+    set Quarantine-length 21
+    set Vaccine? TRUE
+    set Percent-vaccinated 100
+    set Vaccine-effectiveness 90
+
+end
+
+to no-parameters ;fake news
+    
+    set Social-Interaction? TRUE
+    set prob-interaction 100.0
+    set avg-interaction 20
+    set social-distance? FALSE
+    set prob-distancing 0
+    set Testing? FALSE
+    set Test-effectiveness 0
+    set Test-quarantine 0
+    set Masks? FALSE
+    set Wear-Masks 0
+    set Mask-effectiveness 0
+    set Self-Quarantine? FALSE
+    set Self-quarantined 0
+    set Quarantine-length 0
+    set Vaccine? FALSE
+    set Percent-vaccinated 0
+    set Vaccine-effectiveness 0
+
+
+end
+
+to limited-parameters
+
+    set Social-Interaction? TRUE
+    set prob-interaction 50.0
+    set avg-interaction 20
+    set social-distance? TRUE
+    set prob-distancing 75
+    set Testing? TRUE
+    set Test-effectiveness 80
+    set Test-quarantine 14
+    set Masks? TRUE
+    set Wear-Masks 50
+    set Mask-effectiveness 80
+    set Self-Quarantine? TRUE
+    set Self-quarantined 80
+    set Quarantine-length 21
+    set Vaccine? TRUE
+    set Percent-vaccinated 70
+    set Vaccine-effectiveness 90
+  
+end
+
+to fullyopen-parameters
+
+    set Social-Interaction? TRUE
+    set prob-interaction 90.0
+    set avg-interaction 20
+    set social-distance? TRUE
+    set prob-distancing 50
+    set Testing? TRUE
+    set Test-effectiveness 80
+    set Test-quarantine 14
+    set Masks? TRUE
+    set Wear-Masks 50
+    set Mask-effectiveness 80
+    set Self-Quarantine? TRUE
+    set Self-quarantined 80
+    set Quarantine-length 14
+    set Vaccine? TRUE
+    set Percent-vaccinated 50
+    set Vaccine-effectiveness 90
+
+end
+
+to-report phased-parameters [ phase-num ]
+  
+ 
+ print (word "Phased opening called phase-parameters with phase-num = " phase-num)
+ ifelse phase-num = 0
+ [ 
+    no-parameters
+    set phase-time int ( simlength * 0.10 )
+    set phase-step 1
+ ]
+ [ 
+    ifelse phase-num = 1
+    [
+      lockdown-parameters
+      set phase-time int ( simlength * 0.2 )
+      set phase-step 2
+    ]
+    [
+      ifelse phase-num = 2
+      [
+        limited-parameters
+        set phase-step 3
+        set phase-time int ( simlength * 0.35 )
+      ]
+      [
+        ifelse phase-num = 3
+        [
+          fullyopen-parameters
+          set phase-step 4
+          set phase-time simlength
+        ]
+        [
+          print (word ticks ":Error in setting phased approach to opening." )
+        ]
+      ]        
+   ]
+]
+ report phase-time
+
+end
+
+to interface-parameters
+  
+    ;just use what user sets on interface
+  
+end

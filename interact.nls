@@ -1,0 +1,222 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; RULES OF INTERACTION
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+to interact-socially
+  
+   ;Next check social environment.  If the person is not currently interacting with anyone, then move a little,
+   ;check to make sure the patch is not an external patch, and then initiate an interaction.  If the person
+   ;has already initiated an interaction, then interact for a certain amount of time.
+
+   if member? status [ 0 1 2 3 5 7 ]    ;4 in hospital, 6 deceased, 8 quarantined
+   [  ifelse partner = nobody ;free to move around and interact
+       [ 
+         move
+         if [pcolor] of patch-here = 0 [ initiate ]  ;only interact on pure black patches (i.e. no environment or hospital
+       ]
+       [ 
+         if partner != self [ interact ] ;interact if not in external environment
+       ] 
+   ]
+                       
+end
+
+to initiate
+  ;rules for actually interacting - person must not already have a partner, and if there is someone available, there is a
+  ;probability of interaction that sets the chance of interacting
+
+  let someone (any? other people-here with [partner = nobody])  ;true or false
+  ifelse someone
+  [
+     ;may not actually strike up a conversation with this partner.  The contact rate is adjusted
+     ;with the "movement" parameter and the "prob-conversation" parameter.  Note also that the
+     ;user controls the length of each conversation which will also impacts contact rate.
+     ifelse (random-float 100.0) < prob-interaction [
+         if verify? [ output-print (word ticks ":" who ":" kind ":" status ":will interact with person:" someone) ]
+         meet ;interaction is actually going to occur
+     ][
+         ;someone available for interacting, but no interaction initiated.  Assume no transmission between individuals
+         if verify? [ output-print (word ticks ":" who ":" kind ":" status ":did not initiate any interactions") ]
+     ]
+  ][
+      ;others on patch but just move on - no one to interact with who is not partnered already, assuming no transmission between individuals
+      if verify? [ output-print (word ticks ":" who ":" kind ":" status ":has no partners") ] 
+  ]
+  
+end
+
+to meet
+       ;sets up contact list in the memory of each individual for self and partner
+  
+       set contacts (contacts + 1)   ;Keep track of total number of contacts made (globally)
+       let contact-list 0
+       let me self
+
+       ;Choose one of the eligible people to partner with
+       set partner one-of other people-here with [partner = nobody]  ;pick one of the eligible people
+       if verify? [ output-print (word ticks ":" who ":" kind ":" status ":partners with:" partner) ]
+       ;Set partner's attribute to me.
+       ask partner [ set partner me ]
+
+       ifelse (member? partner memory = false)
+       [ 
+         set memory lput partner memory ;put partner in memory
+         set contact-list contact-list + 1 ;local variable to indicate new addition to contact list
+         if verify? [ output-print (word ticks ":" self ":" kind ":" status ":added:" partner ":to contact list:" memory) ]
+       ]
+       [ 
+         if verify? [ output-print (word ticks ":" self ":" kind ":" status ":already has:" partner ":in contact list") ]
+       ]
+       ifelse (member? self [memory] of partner = false)
+       [ 
+         ask partner 
+         [  
+            set memory lput me memory
+            set contact-list contact-list + 1 ;local variable to indicate new addition to contact list of partner
+         ]   
+         if verify? [ output-print (word ticks ":" me ":" kind ":" status ":added to:" partner ":contact list:" [memory] of partner) ]
+       ]
+       [
+         if verify? [ output-print (word ticks ":" me ":" kind ":" status ":already in:" partner ":contact list") ]
+       ]
+  
+       ;This person is the initiator, automating rendering the partner to a subordinate role
+       set initiator? TRUE
+       ask partner [ set initiator? FALSE ]
+
+       ;keep track of time conversation started
+       set start-time ticks
+       ask partner [ set start-time ticks ]
+
+       ;set time to end interaction
+       set interaction-length random avg-interaction   ;to be used with probability of transmission later
+
+       let interaction-end round( interaction-length + ticks )
+       set end-time interaction-end
+       ask partner [ set end-time interaction-end ]
+
+       ;Set patch of interaction - since xcor and ycor are real numbers, patches may not exactly
+       ;coincide with position of partners. Sky if both people in each other's contact list.  Blue
+       ;if one person has other in contact list and pink if neither in contact list.  
+       ifelse (contact-list = 2)
+         [ ask patch-here [ set pcolor sky ]]
+         [ ifelse (contact-list = 0)
+            [ ask patch-here [ set pcolor pink ]]  ;already in memory
+            [ ask patch-here [ set pcolor white ]] ;something wrong!
+         ]
+
+       ;keep track of interaction started in simulation and the level of interaction
+       set interaction-starts (interaction-starts + 1)
+
+      if verify? [ 
+        output-print (word ticks ":" who ":" kind ":" status ":interacts with:" [who] of partner ":of type:" [kind] of partner ":and status:" [status] of partner
+        ":until:" end-time ":at [" xcor ":" ycor "]")
+      ]
+end
+
+to interact
+   ; now model the actual interaction
+  
+   ifelse (ticks <= end-time) 
+   [
+      ifelse (ticks > start-time) 
+      [
+        ifelse status = 4 or [status] of partner = 4 
+        [ close-interaction ]
+        [ if verify? [ output-print (word ticks ":" who ":" kind ":" status ":has ongoing interaction with person:" [who] of partner) ] ]
+      ][
+         if verify? [ output-print (word ticks ":" who ":" kind ":" status ":establishes interaction with person:" [who] of partner) ]
+      ]
+   ][
+      ;Determine outcome of interaction.  If not in this list, there is no impact from the interaction
+      close-interaction
+   ]
+    
+end
+
+to close-interaction
+  
+      ask patch-here [ set pcolor original-color ]
+      ifelse vaccinated? and random-float 100.0 <= Vaccine-Effectiveness
+      [ 
+        if verify? [ output-print (word ticks ":" who ":" kind ":" status ":has been vaccinated so no changes from:" [who] of partner ":" [kind] of partner ":" [status] of partner ) ]
+      ]
+      [     
+          ifelse status = 1 
+          [ set status status-susceptible ( [status] of partner ) ]                             ;susceptible to infection depending on "type"
+          [ ifelse status = 3 
+            [ set status status-infectious ( [status] of partner ) ]                            ;incubation time over - now infectious
+            [ ifelse status = 7 
+              [ set status status-reinfected ( [status] of partner ) ]                  ;no longer immune after recovery
+              [ if verify? [ output-print (word ticks ":" who ":" kind ":" status ":has no changes from interaction with:" [who] of partner ":" [kind] of partner ":" [status] of partner ) ]]
+            ]
+          ]
+      ]
+      
+      set num-interactions (num-interactions + 1)
+      set total-interact-time (end-time - start-time + total-interact-time)
+      ifelse initiator? [
+          set interaction-ends (interaction-ends + 1)
+          if verify? [ output-print (word ticks ":" who ":" kind ":" status ": ends interaction as initiator with :" [who] of partner ":" kind ":" [status] of partner)]
+      ][
+      if verify? [ output-print (word ticks ":" [who] of partner ":" [kind] of partner ":" [status] of partner ":ended interaction as partner of:" who ":" kind ":" status) ]
+      ]
+
+      set partner nobody
+      rt random-float 360.0
+      if status != 4 [ jump 5 * movement ]
+
+end
+
+to-report status-susceptible [ pstatus ]  ;status  = 1
+  ;Some people are set to susceptible at the beginning, according to a probability for each "kind"
+  ;These people remain suspectible unless they meet someone who is infectious.  They they change to exposed
+  ;Exposed people become infected over a time period without interaction - elsewhere in code!
+  
+  if pstatus = 3 
+  [ 
+      if Self-quarantine? ;are we looking at quarantining?
+      [ 
+        if random-float 100.0 <= Self-quarantined ;some percentage will do this because they met an infectious person - doesn't matter if actually infectious
+        [
+          set-self-quarantine
+          report 8 
+        ]
+      ]
+
+      if random-float 100.0 <= infection-rate ;depending on infectiousness of the disease, they may get infected from this encounter
+      [ 
+         set incubation-time random incubation-period + ticks  ;set a specific time when they become infected themselves
+         set shape "face sad"
+         report 2                                              ;you are now exposed and will become infectious after incubation time
+      ]
+  ]
+  
+  ;So people who do not self-quarantine and who do not get infected have no change
+  report 1 ;status remains same
+ 
+end
+
+to-report status-infectious [ pstatus ]     ;status = 3
+  
+   if pstatus = 1 
+   [ 
+      ask partner 
+      [ 
+        set status 2
+        set shape "face sad"
+      ]           ;partner now exposed instead of susceptible
+   ]        
+   report 3 ;status remains the same
+
+end
+
+to-report status-reinfected [ pstatus ]  ;status = 7 but can get back in pool
+  
+   if pstatus = 3 ;partner infected 
+   [ 
+      set shape "flag"  ;exposed flag for reinfection
+      report 2          ;gone from status 7 to exposed again
+   ]        
+   report 7
+  
+end

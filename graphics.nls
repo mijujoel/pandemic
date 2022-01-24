@@ -1,0 +1,164 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; OUTPUT PROCEDURES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to clear-most-things
+  
+  clear-globals
+  clear-ticks
+  clear-turtles
+  clear-patches
+  clear-drawing
+  ;clear-output
+  
+  ;clear-all-plots except summary
+  set-current-plot "Initial Population"
+  clear-plot
+  ;set-current-plot "Susceptible"
+  clear-plot
+  set-current-plot "Exposures"
+  clear-plot
+  set-current-plot "Infectious"
+  clear-plot
+  set-current-plot "Hospitalized"
+  clear-plot
+  set-current-plot "Recovered"
+  clear-plot
+
+end
+
+to setup-histograms
+  ;Initial Histogram - don't set limits - let model autoset
+  set-current-plot "Initial Population"
+  set-histogram-num-bars 5
+
+  ;histogram of Susceptibility by kind
+  set-current-plot "Susceptible"
+  set-histogram-num-bars 5
+
+  ;Contact list for individuals
+  set-current-plot "Exposures"
+  set-histogram-num-bars 10
+
+  ;Who is infected by kind
+  set-current-plot "Infectious"
+  set-histogram-num-bars 5
+
+  ;Who is hospitalized
+  set-current-plot "Hospitalized"
+  set-histogram-num-bars 5
+
+  ;Who has recovered
+  set-current-plot "Recovered"
+  set-histogram-num-bars 5
+
+  ;Who has died
+  set-current-plot "Deceased"
+  set-histogram-num-bars 5
+  
+  update-histograms
+
+end
+
+;;;
+;;; UPDATE PROCEDURES
+;;;
+
+to update-plot-data
+  
+  ;update time series
+  set-current-plot "Summary"
+  set-current-plot-pen "healthy"
+  plot count people with [status = 0]
+  set-current-plot-pen "susceptible"
+  plot count people with [status = 1]
+  set-current-plot-pen "exposed"
+  plot count people with [status = 2]
+  set-current-plot-pen "infectious"
+  plot count people with [status = 3]
+  set-current-plot-pen "hospitalized"
+  plot count people with [status = 4]
+  set-current-plot-pen "recovered"
+  plot count people with [status = 5]
+  set-current-plot-pen "deceased"
+  plot count people with [status = 6]
+  set-current-plot-pen "reinfected"
+  plot count people with [status = 7]
+  set-current-plot-pen "quarantined"
+  plot count people with [status = 8]
+  set-current-plot-pen "total"
+  plot count people
+
+end
+
+to update-histograms
+  ;update type histogram 
+  set-current-plot "Initial Population"
+  set-current-plot-pen "kind"
+  histogram [kind] of people
+
+  set-current-plot "Susceptible"
+  set-current-plot-pen "kind"
+  histogram [kind] of people with [status = 1]
+
+  set-current-plot "Exposures"
+  set-current-plot-pen "kind"
+  histogram [ length memory ] of people
+
+  set-current-plot "Infectious"
+  set-current-plot-pen "kind"
+  histogram [kind] of people with [status = 3]
+
+  set-current-plot "Hospitalized"
+  set-current-plot-pen "kind"
+  histogram [kind] of people with [status = 4]
+
+  set-current-plot "Recovered"
+  set-current-plot-pen "kind"
+  histogram [kind] of people with [status = 5]
+  
+  set-current-plot "Deceased"
+  set-current-plot-pen "kind"
+  histogram [kind] of people with [status = 6]
+
+end
+
+;;;
+;;; MONITOR PROCEDURES
+;;;
+
+to update-monitors
+  ;reset counters for each year
+  set contacts-per-time (contacts - old-contacts)
+  set starts-per-time (interaction-starts - old-interaction-starts)
+  set ends-per-time (interaction-ends - old-interaction-ends)
+  set active-interactions (interaction-starts - interaction-ends)
+  set old-contacts contacts
+  set old-interaction-starts interaction-starts
+  set old-interaction-ends interaction-ends
+   
+end
+
+;;;
+;;; Movie - need to update commands
+;;;
+
+to make-movie
+
+   ;where to store movie
+;   user-message "Save movie file with a .mov extension"
+;   let path user-new-file
+;   if not is-string? path [ stop ] ;;terminate if user cancels
+
+   ;run model
+;   setup
+;   movie-start path
+;   movie-grab-view
+;   repeat movie-frames [
+;     go
+;     movie-grab-view ]
+
+   ;export
+;   movie-close
+;   user-message (word "Movie exported to" path)
+end

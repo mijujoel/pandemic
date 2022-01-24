@@ -1,0 +1,212 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; HEALTH - check status, implement behaviors, vaccinations, etc.
+;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to social-distance
+
+    ifelse random-float 100.0 <= prob-distancing  ;not everyone follows rules
+    [
+        let empty-patches neighbors with [not any? turtles-here] ;look at 8 surrounding patches
+        if any? empty-patches
+        [
+            let target one-of empty-patches  ;should not find [0,0] empty
+            face target
+            move-to target
+        ];otherwise do not move this round
+    ][
+        just-move
+    ]
+  
+end
+
+to check-health
+  
+   ;some people can switch status after time period.  Note that testing so far is only for people who are infectious already (see interact.nls).
+   ;may later add other testing - people with status 1 or even 0.
+  
+   ifelse status = 2 ;you have been exposed & got infected (determine in interaction code when partner = 3)
+   [  
+      if ticks > incubation-time ;Time after exposure when symptoms may appear
+      [  
+        ifelse testing? ;if testing turned on...  Note this only covers people who are now infectious based on encounter with infectious partner
+        [
+            ifelse random 100 <= Test-effectiveness  ;percentage of accurate positive tests
+            [
+              set test-result? true 
+              if verify? [ output-print (word ticks ":" who  ":" kind ":" status ":has tested positive:" test-result? ) ]
+           ]
+           [
+              ;model does not test false positives yet - that would be added in interaction code, not here
+              set test-result? false
+              if verify? [ output-print (word ticks ":" who  ":" kind ":" status ":has been tested:" test-result? ":but it's a false negative" ) ]
+           ]
+        
+           ;now quarantine some of the positive tests
+           ifelse test-result? and random-float 100.0 <= Test-quarantine ;some percentage will quarantine after a positive test
+           [
+                set-quarantined
+                if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is quarantined after testing for:" quarantine-time) ]
+           ]
+           [ ;some won't quarantine even though positive test
+                set-infectious
+           ]
+  
+        ] 
+        [
+          set-infectious; not tested but interaction code said they were infected
+          if verify? [ output-print (word ticks ":" who  ":" kind ":" status ":has not been tested so infected with test result set to:" test-result? ) ]
+        ]
+     ]
+   ]
+   [  
+      ifelse status = 3 ;you are infectious
+      [ if ticks > infectious-time
+        [ set status 4
+          set shape "target"
+          setxy 0 0       ;place in bottom left 
+          set infectious-time 0
+          set illness-time ( random illness-factor * kind ) + ticks 
+          if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is sick for:" illness-time ) ]
+        ]
+      ]
+      [ 
+        ifelse status = 4
+        [ if ticks > illness-time
+          [ ifelse kind = 1 
+            [ check-recovery ( asymptomatic ) ]
+            [ ifelse kind = 2 
+              [ check-recovery ( mild-symptoms ) ]
+              [ ifelse kind = 3 
+                [ check-recovery ( medium-symptoms ) ]
+                [ ifelse kind = 4 
+                  [ check-recovery ( serious-symptoms ) ]
+                  [ if kind = 5 
+                    [ check-recovery ( severe-symptoms ) ]
+                  ]
+                ]
+              ]
+            ]
+            if verify? [ output-print (word ticks ":" who ":" kind ":" status ":after illness" ) ]
+          ]
+        ]
+        [ 
+          ifelse status = 5
+          [ ifelse reinfection-flag?
+            [ 
+              if (random 100) < reinfect-rate
+              [  
+                set status 7
+                set shape "star"
+                set reinfectious reinfectious + 1
+                if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is again infectious for:" infectious-time ) ]
+              ]
+              set reinfection-flag? false ;check once per recovered person
+            ]
+            [ 
+              if verify? [ output-print (word ticks ":" who ":" kind ":" status ":reinfection flag is false" ) ]
+            ]
+          ]
+          [ 
+            ifelse status = 8
+            [ if ticks > quarantine-time  ;use same recovery rate as with hospitalized people for now
+              [ ifelse kind = 1 
+                [ check-recovery ( asymptomatic ) ]
+                [ ifelse kind = 2 
+                  [ check-recovery ( mild-symptoms ) ]
+                  [ ifelse kind = 3 
+                    [ check-recovery ( medium-symptoms ) ]
+                    [ ifelse kind = 4 
+                      [ check-recovery ( serious-symptoms ) ]
+                      [ if kind = 5 
+                        [ check-recovery ( severe-symptoms ) ]
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+            [
+              if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is not impacted by health check" ) ]
+            ]
+          ]
+       ]
+     ]
+   ]
+  
+end
+
+to set-infectious
+  
+   set status 3
+   set shape "bug"
+   set incubation-time 0 
+   set infectious-time ( random infectious-length ) + ticks 
+   if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is infectious" ) ]
+
+end 
+
+to set-quarantined
+  
+   set status 8
+   set shape "triangle"
+   setxy 0 0
+   set quarantine-time quarantine-length + ticks  ;fixed amount for now
+   if verify? [ output-print (word ticks ":" who  ":" kind ":" status ": quarantined for:" quarantine-time ":ticks") ]
+
+end
+
+to set-self-quarantine
+  
+  set shape "triangle 2"
+  setxy 0 0
+  set quarantine-time quarantine-length + ticks  ;fixed amount for now
+  if verify? [ output-print (word ticks ":" who  ":" kind ":" status ": self-quarantined for:" quarantine-time ":ticks") ]
+
+end
+
+to use-masks
+  
+  if verify? [ output-print (word ticks ":" who  ":" kind ":" status ":is wearing a mask") ]
+    
+end
+
+to vaccinate
+  
+  ;exposed person much less chance of getting infected based on vaccine effectiveness
+  if verify? [ output-print (word ticks ":" who  ":" kind ":" status ":received vaccination") ]
+    
+end
+
+to check-recovery [ chances ]
+  
+   ifelse random 100 < chances ;recovered
+   [
+     set status 5
+     set shape "face happy"
+     set-position
+   ]
+   [
+     set status 6
+     set shape "x"
+     ;die - just leave in model for now
+   ]
+                    
+end       
+
+to check-quarantine [ chances ]
+  
+   ifelse random 100 < chances ;recovered on their own
+   [
+     set status 5
+     set shape "face happy"
+     set-position
+   ]
+   [
+     set status 4
+     set shape "target"
+     ;they get hospitalized
+   ]
+                    
+end  

@@ -1,0 +1,138 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Report
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to print-pop
+        output-print "=================="
+        output-print (word  ":Population Report")
+        output-print (word  ":Total population:" count people)
+        output-print (word  ":Aymptomatic:" count people with [kind = 1])
+        output-print (word  ":Mild:" count people with [kind = 2])
+        output-print (word  ":Medium:" count people with [kind = 3])
+        output-print (word  ":Serious:" count people with [kind = 4])
+        output-print (word  ":Severe:" count people with [kind = 5])
+
+end
+
+to print-summary
+  
+       output-print ""
+       output-print (word ticks "::::OVERALL HEALTH")
+       print-status
+
+end
+
+to print-status
+  
+     output-print "=================="
+     output-print (word  ":Healthy:" count people with [status = 0])
+     output-print (word  ":Susceptible:" count people with [status = 1])
+     output-print (word  ":Exposed:" count people with [status = 2])
+     output-print (word  ":Infectious:" count people with [status = 3])
+     output-print (word  ":Hospitalized:" count people with [status = 4])
+     output-print (word  ":Recovered:" count people with [status = 5])
+     output-print (word  ":Deceased:" count people with [status = 6])
+     output-print (word  ":Re-infected:" count people with [status = 7])
+     output-print "=================="
+
+end
+
+to phase-summary
+
+     output-print "==================" 
+     output-print (word ticks ":Phase:" Phases) 
+     output-print (word ticks ":Social Interaction on?:" Social-Interaction?)
+     output-print (word ticks ":Probability of interarction:" prob-interaction)
+     output-print (word ticks ":Length of average interaction:" avg-interaction ":ticks")
+     output-print (word ticks ":Social distancing on?:" social-distance?)
+     output-print (word ticks ":Probability of distancing:" prob-distancing)
+     output-print (word ticks ":Percent self-quarantined:" Self-quarantined)
+     output-print (word ticks ":Testing being performed?:" Testing?)
+     output-print (word ticks ":Effectiveness of testing:" Test-effectiveness)
+     output-print (word ticks ":Percent quarantined after testing:" Test-quarantine)
+     output-print (word ticks ":Vaccination?:" Vaccine?)
+     output-print (word ticks ":Percent vaccinated:" Percent-vaccinated)
+     output-print (word ticks ":Vaccine effectiveness:" Vaccine-effectiveness)
+     output-print "=================="
+
+end
+
+to export-model
+ 
+  let file user-input "Please enter filename without extension for reports:"
+  
+  let output-file (word "./reports/" file "-output.csv")
+  let plot-file (word "./reports/" file "-plots.csv")
+  let world-file (word "./reports/" file "-world.csv")
+  let interface-file (word "./reports/" file "-io.png")
+
+  if file-exists? output-file [ file-delete output-file ]
+  if file-exists? plot-file   [ file-delete plot-file ]
+  if file-exists? world-file  [ file-delete world-file ]
+  if file-exists? interface-file [file-delete interface-file]
+  
+  output-print (word ticks ":Export model contents for output | plots | world | interface using root " file)
+  export-output output-file
+  export-all-plots plot-file
+  export-world world-file
+  export-interface interface-file
+  file-close-all
+  
+end
+
+to write-custom-report
+
+  let file user-input "Please enter filename without extension for custom report:"
+
+  let file-report (word "./reports/" file ".txt")
+  
+  if file-exists? file-report [ file-delete file-report ]
+  
+  file-open file-report
+  output-print (word ticks ":Export model custom report as .txt file using root " file)
+  write-report
+  file-close
+  
+end
+
+to write-report
+
+  file-print "SETUP PARAMETERS"
+  file-print ""
+  file-print (word "randomize-seed:  " randomize-seed?)
+  file-print (word "initial seed:    " iseed)
+  file-print (word "runtime seed:    " gseed)
+  file-print (word "simlength:       " simlength)
+  file-print (word "printing on?:    " printing?)
+  file-print (word "verify on?:      " verify?)
+  
+  file-print ""
+  file-print ""
+  file-print "DEMOGRAPHIC PARAMETERS"
+  file-print ""
+  file-print (word "population size: " total-population)
+  file-print (word "std. movement:   " movement)
+  file-print ""
+  file-print "Population Distribution"
+  file-print (word "% Asymptomatic:  " prob-asymptomatic)
+  file-print (word "% Mild Symptoms: " prob-mild-symptoms)
+  file-print (word "% Med. Symptoms: " prob-medium-symptoms)
+  file-print (word "% Serious:       " prob-serious-symptoms)
+  file-print (word "% Severe:        " prob-severe-symptoms)
+  file-print ""
+  file-print "Susceptibility to Infection"
+  file-print ""
+  file-print "TBD"
+  
+end
+
+to check-memory
+  
+  let mem-size 0
+  ask people
+  [
+    set mem-size length [ memory ] of self
+    output-print (word ticks ":" who ":" kind ":" status ":has contact list of size:" mem-size ":with these contacts in list:" [ memory ] of self)
+  ]
+   
+end

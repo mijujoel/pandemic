@@ -1,0 +1,170 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; EXTERNAL ENVIRONMENT
+;
+; Create spaces across landscape where the rules are different.  The color of each environment is set along a gradient
+; which is part of the calculation of whether a person gets infected.  There is a global infection slider that can
+; be set to 0 to turn off all infection in the environments.  Each person has a susceptibility factor, as well.
+;
+; Since no interactions between individuals are in effect here, this mimics social distancing. But there can be
+; an infection rate here under the modeler's control to mimic some level of infection.
+;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to setup-env
+  ;all patches set to default initially - intensity not used on black patches in current version of model
+  ask patches [
+    set pcolor env0-color           ;initial color
+    set intensity (random 100.0)    ;used for colorizing the environment 
+    set original-color env0-color   ;used to restore color to original
+  ]
+
+  ;If environment is activated, a user-determined number of "communities" are established that follow these rules. People inside the communities 
+  ;do not interact n this version of the model.  Note that world wraps in vertical and horizontal dimension, and that origin is in lower left corner.
+  ifelse Environment? 
+  [
+    ;set up size of each environment - all are of equal size
+    let kount 0
+    let x 0
+    let y 0
+    let s size-of-environment - 1
+    let t int(( max-pycor - s ) / num-of-environments )
+    
+    repeat num-of-environments
+    [
+      set x int( random ( max-pxcor - s ))                            ;lower left corner x point ranges from -max-pxcor to max-pxcor
+      set y (s + 1) * kount                  ;lower left corner y point ranges from -max-pycor to max-pycor
+      if verify? [ output-print (word "0::::" kount ":External environment has origin at:" x ":" y ":with size s = :" s ": and parameter t = :" t) ]
+
+      ask patches [
+         if (pxcor >= x) and (pxcor <= x + s )
+             and (pycor >= y) and (pycor <= y + s)
+          [
+             set pcolor env1-color
+             set original-color env1-color
+          ]
+      ]
+      set kount kount + 1
+    ]
+
+    ; Patch intensity is randomly assigned to each patch.  To make more realistic,
+    ; use the diffuse function to spread the value of each intensity to its nearest
+    ; neighbors; the value 1 is the max. diffusion coefficient.  Repeat this
+    ; diffusion step "Smoothness" times (set by user) to create a smooth topology.
+    ; This applies to all patches. The infection rate is adjusted depending on the intensity
+    ;
+    ; Rescale is like converting between degrees Centigrade and Fahrenheit - scale
+    ; range from min to max => 0 to 100.  Then recolor the patches.  Only do this for
+    ; non-black patches.  Thus, the intensity topology exists over the entire grid
+    ; but it is only observed and used in the external patch areas.
+      if Smoothness > 0 [
+         repeat Smoothness [ diffuse intensity 1 ] ;smoothness function
+         rescale
+         recolor
+      ]
+  ]
+  [
+    set smoothness 0
+    set num-of-environments 1 ;min allowed
+    set size-of-environment 1 ;min allowed
+    set never-leave? FALSE
+    set time-in-environment 0
+  ]
+ 
+end
+
+to rescale ;adapted from a "fitness" model in Netlogo Community Models
+   let highest max [ intensity ] of patches
+   let lowest min [ intensity ] of patches
+   ask patches [
+     set intensity (((intensity - lowest) * 100) / (highest - lowest))
+   ]
+   let nhighest max [ intensity ] of patches 
+   let nlowest min [ intensity ] of patches + 1
+   if verify? [ output-print (word "0:Intensity range from: " lowest ": to :" highest ": shifted to :" nlowest ": to :" nhighest) ]
+
+end
+
+to recolor
+   ask patches [
+       ifelse original-color = env1-color
+          [ set pcolor scale-color env1-color intensity 1 100 ] 
+          [ ifelse original-color = env2-color
+               [ set pcolor scale-color env2-color intensity 1 100 ] 
+               [ set pcolor env0-color ] ;ignore for black patches
+          ]
+   ]
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;
+to external-rules-of-engagement
+
+  if ([pcolor] of patch-here > env1-color - 5 and [pcolor] of patch-here < env1-color + 5) ;netlogo has a range of shades for each color swatch
+  [
+     ;set rules in environmental area
+     ifelse ( in-external? = FALSE ) ;person not yet in env but okay to enter
+     [
+        ;Keep track of total number of people in external environment
+        set externals (externals + 1)  ;keep track of no. of people who visit the environment in global variable
+        set partner self               ;so no ineractions set in this region - i.e., social distancing in effect
+        set start-time ticks           ;current time is start-time
+        ifelse never-leave?            ;does person stay in environment entire simulation?
+        [ 
+          set end-time simlength - 1
+        ][
+          set end-time round( random-exponential time-in-environment ) + ticks  ;set end time
+        ]
+        set in-external? TRUE            ;initialization finished
+        if verify? [ output-print (word ticks ":" who ":" kind ":" status ":External pattern initiated from:" start-time ":to last until:" end-time) ]
+     ][ ;person already in environment
+      
+        ifelse ticks > end-time 
+        [
+
+          ;Once done with strolling around environment, move out of the zone.  Each person records how many times
+          ;they go through external environment as an attribute
+        
+          ;Probability of infection based on intensity of patch with white as highest, black as lowest, and color in
+          ;between.  Then divide this value by the susceptibility for that type of person. So this models infection
+          ;based on interaction with environment, rather than personal interactions.
+          set external-intensity-avg external-intensity-sum / external-patch-count
+          let chance-of-infection susceptibility / 100.0 * external-intensity-avg
+          let ranf random-float 100.0
+          if ranf < chance-of-infection 
+          [ 
+             if verify? [ output-print (word ticks ":" who ":" kind ":" status ":chance of infection from external environment:" chance-of-infection 
+             ": based on average intensity :" external-intensity-avg ": and susceptibility :" susceptibility) ]
+             set-external-exposure
+          ]
+
+          move-away
+      
+        ][
+          ;move to patch within environment
+          right random 360
+          let col [pcolor] of patch-ahead 1
+          let diff col - int(col)
+          
+          ifelse diff > 0 
+          [ 
+            forward 1 
+          ]
+          [
+            if verify? [ output-print (word ticks ":" who ":" kind ":" status ":turns around: " diff) ]
+            right 180
+          ]
+            
+          if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is traveling through environment at patch:" pxcor ":" pycor ":until time:" end-time) ]
+          set external-intensity-sum external-intensity-sum + [intensity] of patch-here 
+          set external-patch-count external-patch-count + 1
+
+        ]
+     ]
+   ]
+end
+
+to set-external-exposure
+  ;person is exposed
+  set status 2
+  set shape "face sad"
+end

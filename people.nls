@@ -1,0 +1,153 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+; POPULATION
+;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to setup-people
+
+  let one-infected? false
+  create-people total-population 
+  [
+
+    ;set person's characteristics  
+    set shape "person"
+    set size 1 
+    set-position ;locate person, noting that [0,0] reserved for hospitalized
+    set in-external? FALSE  ;if environment switch on, person can enter
+    set external-intensity-sum 0 ;; Keep track of sum of all intensities person runs across while in environment
+    set external-intensity-avg 0 ;; Used to determine probability of infection
+    set external-patch-count 1   ;; how many patches visited in environment
+ 
+    ;health parameters
+    set status 0
+    set incubation-time 0
+    set quarantine-time 0
+    set reinfection-flag? true
+    set vaccinated? false
+    if Vaccine? [ if random-float 100.0 <= Percent-vaccinated [ set vaccinated? true ] ] ;percent vaccinated reduced by percent initially infected
+    set test-result? false
+    
+    ;set type of person
+    set-demographics ;determine kind of individual - from asymptomatic to severe.  This refers to the person's general state of being
+    
+  
+    ;contact parameters
+    set initiator? FALSE
+    set partner nobody
+    set memory []       ;contact list 
+    set end-time 0
+    set total-interact-time 0
+    set num-interactions 0
+    set total-external-time 0
+    set num-externals 0
+   
+    ;reset some users to "infected" status to prime the simulation
+    if status = 1
+    [
+        let infection-prob random 100
+        if (infection-prob < Initial-Infection) [ set-infected ]
+    ]
+
+    ;status info
+    ;if verify? [ output-print (word "0:" who ":" kind ":" status ":after initialization" ) ]
+  ]
+  
+  if printing? 
+  [
+     print-pop          ;summarize demographics
+     print-status       ;summarize population health
+  ]
+
+end
+
+to set-demographics
+    
+   ;determine what category of person - "kind" attribute
+   let kind-prob (random 100)
+   let cumulative-prob prob-asymptomatic
+   ifelse (kind-prob < cumulative-prob)
+   [ set-asymptomatic ]
+   [ set cumulative-prob cumulative-prob + prob-mild-symptoms
+     ifelse (kind-prob < cumulative-prob)
+     [ set-mild-symptoms ]
+     [ set cumulative-prob cumulative-prob + prob-medium-symptoms
+       ifelse (kind-prob < cumulative-prob)
+       [ set-medium-symptoms ]
+       [ set cumulative-prob cumulative-prob + prob-serious-symptoms
+         ifelse (kind-prob < cumulative-prob)
+         [ set-serious-symptoms ]
+         [ set cumulative-prob cumulative-prob + prob-severe-symptoms
+           ifelse (kind-prob < cumulative-prob)
+           [ set-severe-symptoms ]
+           [ print (word ticks ": Population Symptoms Error: Cumulative probability of " cumulative-prob " is less than 100%")]
+         ]
+       ]
+     ]
+   ]
+
+end
+
+to set-asymptomatic
+   
+   set kind 1
+   set color blue
+   check-susceptibility asymptomatic
+        
+end
+
+to set-mild-symptoms
+  
+   set kind 2
+   set color lime
+   check-susceptibility mild-symptoms
+  
+end
+
+to set-medium-symptoms
+  
+   set kind 3
+   set color yellow
+   check-susceptibility medium-symptoms
+  
+end
+
+to set-serious-symptoms
+  
+   set kind 4
+   set color orange
+   check-susceptibility serious-symptoms
+  
+end
+
+to set-severe-symptoms
+  
+   set kind 5
+   set color red
+   check-susceptibility severe-symptoms
+  
+end
+
+to check-susceptibility [ s ]
+  
+  ;certain percentage of each demographic are susceptible to getting infected
+
+  set susceptibility s  ;attribute
+  let susceptible-prob random 100
+
+  if susceptible-prob < susceptibility 
+  [
+     set status 1              ;change status
+     set shape "face neutral"  ;people think they're okay
+  ]
+end
+
+to set-infected
+        
+  set status 3       ;set a proportion to infectious from unknown source (bypass exposed stage initially)
+  set shape "bug"
+  set initial-infecteds initial-infecteds + 1
+  set infectious-time ( random infectious-length ) ;how long they are infectious before needing medical care
+ 
+end
+

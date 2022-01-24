@@ -1,0 +1,69 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Movement
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to move
+  
+    ;if social distancing on, then make sure you only move to empty patch
+    ifelse social-distance?  
+    [ social-distance ]
+    [ just-move ]
+
+end
+
+to just-move
+  
+        rt random-float 360.0
+        fd movement        ;defined in interface
+        setxy pxcor pycor  ;center in patch
+        if pxcor = 0 and pycor = 0 [ fd movement ]   ;centers on patch but not at [0,0]
+   
+end
+
+to set-position
+   
+    let x random-pxcor
+    let y random-pycor
+    if x = 0 or y = 0 [ set x 1 ]
+    setxy x y  
+  
+end
+
+to move-away
+    ;moves away from environment but may land on a patch with someone else
+    let  desired-heading random-float 180.0
+    let  desired-distance ( sqrt ( 2 * ( size-of-environment ^ 2 ))) ;move away from environment 
+    move-to patch-at-heading-and-distance desired-heading desired-distance
+    if verify? [ output-print (word ticks ":" who ":" kind ":" status ":is moving outside environment to patch [:" pxcor ":" pycor ":]") ]
+
+    if any? other people-here
+    [ 
+       move-to min-one-of (patches with [not any? people-here]) [distance myself]
+       if verify? [ output-print (word ticks ":" who ":" kind ":" status ":had to move to empty patch at:" pxcor ":and:" pycor) ]
+    ]
+  
+    ;cleanup
+    setxy pxcor pycor ;centers on patch
+    set partner nobody
+    set in-external? FALSE  ;can enter another (or same) environment
+    set num-externals (num-externals + 1)
+    set total-external-time (end-time - start-time + total-external-time)
+ 
+end
+
+to move-in-environment
+  
+    ;move to patch within environment
+    right random 360
+    let col [pcolor] of patch-ahead 1
+    let diff col - int(col)
+          
+    ifelse diff > 0 [ forward 1  ]
+    [
+            if verify? [ output-print (word ticks ":" who ":" kind ":" status ":turns around with value:" diff) ]
+            right 180
+    ]
+
+   check-health
+  
+end
